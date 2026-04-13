@@ -2,3 +2,6 @@ cd /workspaces/progetto-professor-Cozzetto/f1-backend && uvicorn main:app --relo
 
 Then open:
 http://localhost:8000/index.html
+
+
+https://progetto-luca-bottarelli.onrender.com/index.html
