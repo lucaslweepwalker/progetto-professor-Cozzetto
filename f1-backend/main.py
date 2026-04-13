@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 import os
 from models import APIResponse
@@ -18,6 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_PATH = os.path.join(BASE_DIR, "../f1-frontend")
 CIRCUITS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../f1-frontend/img/circuits")
 
 
@@ -192,3 +195,10 @@ async def serve_circuit_svg(filename: str):
     if not os.path.isfile(filepath):
         raise HTTPException(status_code=404, detail=f"File not found")
     return FileResponse(filepath, media_type="image/svg+xml")
+
+
+# ---------------------------------------------------------------------------
+# Frontend static files
+# ---------------------------------------------------------------------------
+
+app.mount("/", StaticFiles(directory=FRONTEND_PATH, html=True), name="frontend")
