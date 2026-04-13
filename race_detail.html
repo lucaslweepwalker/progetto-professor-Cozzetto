@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>F1 Stats · Race</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&display=swap" rel="stylesheet" />
+    <style>
+        body { font-family: 'Orbitron', sans-serif; }
+        .nav-link { color: #aaaaaa; letter-spacing: 0.1em; font-size: 0.75rem; transition: color 0.2s; }
+        .nav-link:hover { color: #e74c3c; }
+        .nav-link.active { color: #e74c3c; }
+        .table-row { border-bottom: 1px solid #2a2a2a; transition: background-color 0.15s; }
+        .table-row:hover { background-color: #1f1f1f; }
+        .driver-cell { cursor: pointer; }
+        .driver-cell:hover .driver-name { text-decoration: underline; text-decoration-color: #e74c3c; }
+        .position-badge { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.7rem; font-weight: 700; }
+        .status-pill { font-size: 0.65rem; padding: 0.15rem 0.5rem; border-radius: 9999px; font-weight: 600; letter-spacing: 0.05em; }
+        .back-btn { background-color: #1a1a1a; border: 1px solid #2a2a2a; color: #aaaaaa; font-size: 0.7rem; padding: 0.4rem 0.9rem; border-radius: 0.5rem; transition: border-color 0.2s, color 0.2s; cursor: pointer; font-family: 'Orbitron', sans-serif; letter-spacing: 0.05em; }
+        .back-btn:hover { border-color: #c0392b; color: #f0f0f0; }
+        .session-btn { font-size: 0.7rem; padding: 0.4rem 1rem; border-radius: 0.5rem; font-family: 'Orbitron', sans-serif; letter-spacing: 0.05em; cursor: pointer; font-weight: 600; border: 1px solid #2a2a2a; background-color: #1a1a1a; color: #777777; transition: all 0.15s; }
+        .session-btn:hover { border-color: #c0392b; color: #f0f0f0; }
+        .session-btn.active { border-color: #c0392b; background-color: #c0392b18; color: #f0f0f0; }
+        .pole-card { background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 0.75rem; padding: 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; max-width: 220px; margin: 0 auto; }
+        /* flat purple circle — no emoji, just a plain filled circle */
+        .fastest-lap-dot { width: 10px; height: 10px; border-radius: 50%; background-color: #8b5cf6; display: inline-block; flex-shrink: 0; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="background-color: #111111; color: #f0f0f0;">
+
+    <nav style="background-color: #1a1a1a; border-bottom: 1px solid #c0392b;" class="px-8 py-4 flex items-center justify-between">
+        <a href="index.html" class="text-lg font-black tracking-widest uppercase" style="color: #f0f0f0;">F1 Stats</a>
+        <div class="flex gap-8">
+            <a href="drivers.html" class="nav-link uppercase">Drivers</a>
+            <a href="constructors.html" class="nav-link uppercase">Constructors</a>
+            <a href="races.html" class="nav-link active uppercase">Races</a>
+        </div>
+    </nav>
+
+    <main class="flex-1 px-8 py-8">
+        <div class="max-w-5xl mx-auto">
+            <button class="back-btn mb-8" onclick="history.back()">← Back to Races</button>
+            <p id="loading" class="text-sm text-center py-16" style="color: #555555;">Loading race...</p>
+            <p id="error" class="text-red-500 text-xs text-center py-8 hidden"></p>
+
+            <div id="raceContent" class="hidden">
+
+                <!-- Race header -->
+                <div class="rounded-xl p-8 mb-6" style="background-color: #1a1a1a; border: 1px solid #c0392b;">
+                    <div class="flex items-center justify-between gap-6">
+                        <div>
+                            <p class="text-xs uppercase tracking-widest mb-1" style="color: #c0392b;">
+                                Round <span id="headerRound"></span> – <span id="headerSeason"></span>
+                            </p>
+                            <h1 id="headerRaceName" class="text-2xl font-black uppercase tracking-widest mb-2" style="color: #f0f0f0;"></h1>
+                            <p id="headerCircuit" class="text-sm" style="color: #777777;"></p>
+                            <p id="headerDate" class="text-xs mt-1" style="color: #555555;"></p>
+                        </div>
+                        <!-- Circuit SVG — injected async -->
+                        <div id="circuitSvgContainer" class="flex-shrink-0 flex items-center" style="opacity:0.85;"></div>
+                    </div>
+                </div>
+
+                <!-- Session selector -->
+                <div class="flex gap-2 mb-6 flex-wrap">
+                    <button class="session-btn active" id="btn-race" onclick="switchSession('race')">Race</button>
+                    <button class="session-btn" id="btn-qualifying" onclick="switchSession('qualifying')">Qualifying</button>
+                    <button class="session-btn hidden" id="btn-sprint" onclick="switchSession('sprint')">Sprint</button>
+                </div>
+
+                <!-- Session content -->
+                <div id="sessionContent"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center py-4 text-xs" style="color: #444444; border-top: 1px solid #222222;">
+        Data provided by Jolpica · F1 Stats Project
+    </footer>
+
+    <script src="api.js"></script>
+    <script>
+        const loadingEl = document.getElementById("loading");
+        const errorEl = document.getElementById("error");
+        const raceContent = document.getElementById("raceContent");
+        const sessionContent = document.getElementById("sessionContent");
+
+        let currentYear = null;
+        let currentRound = null;
+        let sessionData = { race: null, qualifying: null, sprint: null };
+        let currentSession = "race";
+
+        function badgeStyle(pos) {
+            const p = parseInt(pos);
+            if (p === 1) return "background-color: #f1c40f; color: #111111;";
+            if (p === 2) return "background-color: #bdc3c7; color: #111111;";
+            if (p === 3) return "background-color: #cd7f32; color: #111111;";
+            return "background-color: #2a2a2a; color: #aaaaaa;";
+        }
+
+        function statusPill(status) {
+            if (!status) return "";
+            const finished = status === "Finished" || status.startsWith("+");
+            const color = finished
+                ? "background-color: #1a3a1a; color: #4caf50;"
+                : "background-color: #3a1a1a; color: #e74c3c;";
+            return `<span class="status-pill" style="${color}">${status}</span>`;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return "—";
+            const d = new Date(dateStr);
+            return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+        }
+
+        function goToDriver(driverId) {
+            sessionStorage.setItem("selectedDriver", driverId);
+            window.location.href = "driver_detail.html";
+        }
+
+        // ---------------------------------------------------------------------------
+        // Race renderer
+        // ---------------------------------------------------------------------------
+        function renderRaceSession(results) {
+            if (!results || results.length === 0) {
+                sessionContent.innerHTML = `<p class="text-xs text-center py-8" style="color:#555555;">No race results available.</p>`;
+                return;
+            }
+
+            const top3 = results.slice(0, 3);
+            const podiumHtml = `
+                <div class="mb-6">
+                    <p class="text-xs uppercase tracking-widest mb-4" style="color: #777777;">Podium</p>
+                    <div class="grid grid-cols-3 gap-4">
+                        ${top3.map((r, i) => `
+                            <div class="rounded-xl p-5 text-center" style="background-color: #1a1a1a; border: 1px solid #2a2a2a; cursor:pointer;" onclick="goToDriver('${r.driver.driver_id}')">
+                                <p class="text-xs uppercase tracking-widest mb-2" style="color: #555555;">${["Winner","2nd","3rd"][i]}</p>
+                                <p class="font-bold text-sm" style="color: #f0f0f0;">
+                                    ${r.driver.first_name} <span style="color: #e74c3c;">${r.driver.last_name.toUpperCase()}</span>
+                                </p>
+                                <p class="text-xs mt-1" style="color: #777777;">${r.constructor_name}</p>
+                                <p class="text-xs mt-2 font-bold" style="color: #c0392b;">${r.points} pts</p>
+                            </div>
+                        `).join("")}
+                    </div>
+                </div>
+            `;
+
+            const tableHtml = `
+                <div>
+                    <p class="text-xs uppercase tracking-widest mb-4" style="color: #777777;">Full Results</p>
+                    <div class="rounded-xl overflow-hidden" style="border: 1px solid #2a2a2a;">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr style="background-color: #1a1a1a; border-bottom: 1px solid #c0392b;">
+                                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest" style="color: #777777;">Pos</th>
+                                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest" style="color: #777777;">Driver</th>
+                                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest" style="color: #777777;">Constructor</th>
+                                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest" style="color: #777777;">Grid</th>
+                                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest" style="color: #777777;">Laps</th>
+                                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest" style="color: #777777;">Status</th>
+                                    <th class="px-3 py-4 text-center text-xs uppercase tracking-widest" style="color: #777777; width: 28px;"></th>
+                                    <th class="px-6 py-4 text-right text-xs uppercase tracking-widest" style="color: #777777;">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${results.map(r => `
+                                    <tr class="table-row">
+                                        <td class="px-6 py-4">
+                                            <div class="position-badge" style="${badgeStyle(r.position)}">${r.position}</div>
+                                        </td>
+                                        <td class="px-6 py-4 driver-cell" onclick="goToDriver('${r.driver.driver_id}')">
+                                            <div class="font-bold driver-name" style="color: #f0f0f0;">
+                                                ${r.driver.first_name} <span style="color: #e74c3c;">${r.driver.last_name.toUpperCase()}</span>
+                                            </div>
+                                            <div class="text-xs mt-0.5" style="color: #555555;">${r.driver.code ?? ""} · ${r.driver.nationality}</div>
+                                        </td>
+                                        <td class="px-6 py-4 text-xs" style="color: #aaaaaa;">${r.constructor_name}</td>
+                                        <td class="px-6 py-4 text-xs" style="color: #aaaaaa;">${r.grid ?? "—"}</td>
+                                        <td class="px-6 py-4 text-xs" style="color: #aaaaaa;">${r.laps ?? "—"}</td>
+                                        <td class="px-6 py-4">${statusPill(r.status)}</td>
+                                        <td class="px-3 py-4 text-center" style="width:28px;">
+                                            ${r.fastest_lap_rank === "1" ? '<span class="fastest-lap-dot"></span>' : ""}
+                                        </td>
+                                        <td class="px-6 py-4 text-right font-bold text-xs" style="color: #f0f0f0;">${r.points ?? 0}</td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            sessionContent.innerHTML = podiumHtml + tableHtml;
+        }
+
+        // ---------------------------------------------------------------------------
+        // Qualifying renderer — polesitter card + full grid
+        // ---------------------------------------------------------------------------
+        function renderQualifyingSession(results) {
+            if (!results || results.length === 0) {
+                sessionContent.innerHTML = `<p class="text-xs text-center py-8" style="color:#555555;">No qualifying results available.</p>`;
+                return;
+            }
+
+            const pole = results[0];
+
+            const poleHtml = `
+                <div class="mb-8">
+                    <p class="text-xs uppercase tracking-widest mb-4 text-center" style="color: #777777;">Pole Position</p>
+                    <div class="pole-card" style="cursor:pointer;" onclick="goToDriver('${pole.driver.driver_id}')">
+                        <div class="text-center">
+                            <p class="text-xs uppercase tracking-widest mb-1" style="color: #c0392b;">P1</p>
+                            <p class="font-bold text-sm" style="color: #f0f0f0;">
+                                ${pole.driver.first_name} <span style="color: #e74c3c;">${pole.driver.last_name.toUpperCase()}</span>
+                            </p>
+                            <p class="text-xs mt-1" style="color: #777777;">${pole.constructor_name}</p>
+                            <p class="text-xs mt-2 font-bold" style="color: #aaaaaa;">${pole.status ?? "No time"}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const tableHtml = `
+                <div>
+                    <p class="text-xs uppercase tracking-widest mb-4" style="color: #777777;">Full Grid</p>
+                    <div class="rounded-xl overflow-hidden" style="border: 1px solid #2a2a2a;">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr style="background-color: #1a1a1a; border-bottom: 1px solid #c0392b;">
+                                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest" style="color: #777777;">Pos</th>
+                                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest" style="color: #777777;">Driver</th>
+                                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest" style="color: #777777;">Constructor</th>
+                                    <th class="px-6 py-4 text-right text-xs uppercase tracking-widest" style="color: #777777;">Best Lap</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${results.map(r => `
+                                    <tr class="table-row">
+                                        <td class="px-6 py-4">
+                                            <div class="position-badge" style="${badgeStyle(r.position)}">${r.position}</div>
+                                        </td>
+                                        <td class="px-6 py-4 driver-cell" onclick="goToDriver('${r.driver.driver_id}')">
+                                            <div class="font-bold driver-name" style="color: #f0f0f0;">
+                                                ${r.driver.first_name} <span style="color: #e74c3c;">${r.driver.last_name.toUpperCase()}</span>
+                                            </div>
+                                            <div class="text-xs mt-0.5" style="color: #555555;">${r.driver.code ?? ""} · ${r.driver.nationality}</div>
+                                        </td>
+                                        <td class="px-6 py-4 text-xs" style="color: #aaaaaa;">${r.constructor_name}</td>
+                                        <td class="px-6 py-4 text-right text-xs font-bold" style="color: #f0f0f0;">
+                                            ${r.status ?? "No time"}
+                                        </td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            sessionContent.innerHTML = poleHtml + tableHtml;
+        }
+
+        // ---------------------------------------------------------------------------
+        // Sprint renderer — reuses race layout
+        // ---------------------------------------------------------------------------
+        function renderSprintSession(results) {
+            if (!results || results.length === 0) {
+                sessionContent.innerHTML = `<p class="text-xs text-center py-8" style="color:#555555;">No sprint results available.</p>`;
+                return;
+            }
+            renderRaceSession(results);
+        }
+
+        // ---------------------------------------------------------------------------
+        // Session switcher
+        // ---------------------------------------------------------------------------
+        async function switchSession(session) {
+            currentSession = session;
+            ["race", "qualifying", "sprint"].forEach(s => {
+                const btn = document.getElementById(`btn-${s}`);
+                if (btn) btn.classList.toggle("active", s === session);
+            });
+            sessionContent.innerHTML = `<p class="text-xs text-center py-8" style="color:#555555;">Loading...</p>`;
+            try {
+                if (session === "race") {
+                    if (!sessionData.race) sessionData.race = await getRaceResults(currentYear, currentRound);
+                    renderRaceSession(sessionData.race?.results);
+                } else if (session === "qualifying") {
+                    if (!sessionData.qualifying) sessionData.qualifying = await getQualifyingResults(currentYear, currentRound);
+                    renderQualifyingSession(sessionData.qualifying?.results);
+                } else if (session === "sprint") {
+                    if (!sessionData.sprint) sessionData.sprint = await getSprintResults(currentYear, currentRound);
+                    renderSprintSession(sessionData.sprint?.results);
+                }
+            } catch (err) {
+                sessionContent.innerHTML = `<p class="text-red-500 text-xs text-center py-8">Could not load session: ${err.message}</p>`;
+            }
+        }
+
+        // ---------------------------------------------------------------------------
+        // Initial load
+        // ---------------------------------------------------------------------------
+        async function loadRace() {
+            currentYear = sessionStorage.getItem("selectedYear");
+            currentRound = sessionStorage.getItem("selectedRound");
+
+            if (!currentYear || !currentRound) {
+                loadingEl.classList.add("hidden");
+                errorEl.textContent = "No race selected. Go back and click a race.";
+                errorEl.classList.remove("hidden");
+                return;
+            }
+
+            try {
+                const race = await getRaceResults(currentYear, currentRound);
+                sessionData.race = race;
+
+                document.getElementById("headerRound").textContent = race.round;
+                document.getElementById("headerSeason").textContent = race.season;
+                document.getElementById("headerRaceName").textContent = race.race_name;
+                document.getElementById("headerCircuit").textContent = `${race.circuit_name} · ${race.country}`;
+                document.getElementById("headerDate").textContent = formatDate(race.date);
+                document.title = `F1 Stats · ${race.race_name}`;
+
+                // Load circuit SVG
+                if (race.circuit_id) {
+                    getCircuitImageUrl(race.circuit_id, currentYear, currentRound).then(url => {
+                        if (!url) return;
+                        const el = document.getElementById("circuitSvgContainer");
+                        if (el) el.innerHTML = `<img src="${url}" alt="${race.circuit_name}" style="height:100px;width:auto;object-fit:contain;display:block;" />`;
+                    });
+                }
+
+                // Check sprint availability
+                try {
+                    const sprint = await getSprintResults(currentYear, currentRound);
+                    if (sprint && sprint.results && sprint.results.length > 0) {
+                        sessionData.sprint = sprint;
+                        document.getElementById("btn-sprint").classList.remove("hidden");
+                    }
+                } catch { /* no sprint */ }
+
+                loadingEl.classList.add("hidden");
+                raceContent.classList.remove("hidden");
+                renderRaceSession(race.results);
+
+            } catch (err) {
+                loadingEl.classList.add("hidden");
+                errorEl.textContent = "Could not load race: " + err.message;
+                errorEl.classList.remove("hidden");
+            }
+        }
+
+        loadRace();
+    </script>
+</body>
+</html>

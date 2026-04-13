@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>F1 Stats · Driver</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&display=swap" rel="stylesheet" />
+    <style>
+        body { font-family: 'Orbitron', sans-serif; }
+        .nav-link { color: #aaaaaa; letter-spacing: 0.1em; font-size: 0.75rem; transition: color 0.2s; }
+        .nav-link:hover { color: #e74c3c; }
+        .nav-link.active { color: #e74c3c; }
+        .stat-card { background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 0.75rem; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.25rem; transition: border-color 0.2s; }
+        .stat-card:hover { border-color: #c0392b; }
+        .stat-card-btn { background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 0.75rem; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.25rem; transition: border-color 0.2s; cursor: pointer; text-align: left; width: 100%; font-family: 'Orbitron', sans-serif; }
+        .stat-card-btn:hover { border-color: #c0392b; }
+        .back-btn { background-color: #1a1a1a; border: 1px solid #2a2a2a; color: #aaaaaa; font-size: 0.7rem; padding: 0.4rem 0.9rem; border-radius: 0.5rem; transition: border-color 0.2s, color 0.2s; cursor: pointer; font-family: 'Orbitron', sans-serif; letter-spacing: 0.05em; }
+        .back-btn:hover { border-color: #c0392b; color: #f0f0f0; }
+        .action-btn { background-color: #1a1a1a; border: 1px solid #c0392b; color: #f0f0f0; font-size: 0.7rem; padding: 0.5rem 1.2rem; border-radius: 0.5rem; transition: background-color 0.2s; font-family: 'Orbitron', sans-serif; letter-spacing: 0.05em; text-decoration: none; display: inline-block; }
+        .action-btn:hover { background-color: #c0392b22; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="background-color: #111111; color: #f0f0f0;">
+
+    <nav style="background-color: #1a1a1a; border-bottom: 1px solid #c0392b;" class="px-8 py-4 flex items-center justify-between">
+        <a href="index.html" class="text-lg font-black tracking-widest uppercase" style="color: #f0f0f0;">F1 Stats</a>
+        <div class="flex gap-8">
+            <a href="drivers.html" class="nav-link active uppercase">Drivers</a>
+            <a href="constructors.html" class="nav-link uppercase">Constructors</a>
+            <a href="races.html" class="nav-link uppercase">Races</a>
+        </div>
+    </nav>
+
+    <main class="flex-1 px-8 py-8">
+        <div class="max-w-3xl mx-auto">
+            <button class="back-btn mb-8" onclick="history.back()">← Back to Standings</button>
+            <p id="loading" class="text-sm text-center py-16" style="color: #555555;">Loading driver...</p>
+            <p id="error" class="text-red-500 text-xs text-center py-8 hidden"></p>
+
+            <div id="profile" class="hidden">
+
+                <!-- Header card -->
+                <div class="rounded-xl p-8 mb-6" style="background-color: #1a1a1a; border: 1px solid #c0392b;">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p id="driverNumber" class="text-4xl font-black mb-1" style="color: #c0392b;"></p>
+                            <p id="driverFirstName" class="text-sm font-semibold uppercase tracking-widest" style="color: #aaaaaa;"></p>
+                            <p id="driverLastName" class="text-3xl font-black uppercase tracking-widest" style="color: #f0f0f0;"></p>
+                            <p id="driverMeta" class="text-xs mt-2" style="color: #555555;"></p>
+                        </div>
+                        <div class="flex flex-col items-center gap-2 flex-shrink-0">
+                            <div id="positionBadge" class="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black" style="background-color: #2a2a2a; color: #aaaaaa;"></div>
+                            <p class="text-xs uppercase tracking-widest" style="color: #555555;">Position</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stat cards -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="stat-card">
+                        <p class="text-xs uppercase tracking-widest" style="color: #777777;">Points</p>
+                        <p id="statPoints" class="text-3xl font-black" style="color: #f0f0f0;"></p>
+                    </div>
+                    <div class="stat-card">
+                        <p class="text-xs uppercase tracking-widest" style="color: #777777;">Wins</p>
+                        <p id="statWins" class="text-3xl font-black" style="color: #f0f0f0;"></p>
+                    </div>
+                    <!-- Constructor — clickable button to team page -->
+                    <button class="stat-card-btn" id="constructorCard" onclick="goToTeam()">
+                        <p class="text-xs uppercase tracking-widest" style="color: #777777;">Constructor ↗</p>
+                        <p id="statConstructor" class="text-lg font-bold" style="color: #e74c3c;"></p>
+                    </button>
+                    <div class="stat-card">
+                        <p class="text-xs uppercase tracking-widest" style="color: #777777;">Date of Birth</p>
+                        <p id="statDob" class="text-lg font-bold" style="color: #f0f0f0;"></p>
+                    </div>
+                </div>
+
+                <!-- Wikipedia link -->
+                <a id="wikiLink" href="#" target="_blank" class="action-btn hidden">
+                    View on Wikipedia
+                </a>
+
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center py-4 text-xs" style="color: #444444; border-top: 1px solid #222222;">
+        Data provided by Jolpica · F1 Stats Project
+    </footer>
+
+    <script src="api.js"></script>
+    <script>
+        const loadingEl = document.getElementById("loading");
+        const errorEl = document.getElementById("error");
+        const profileEl = document.getElementById("profile");
+        let currentConstructorId = null;
+
+        function positionBadgeStyle(pos) {
+            if (pos === 1) return "background-color: #f1c40f; color: #111111;";
+            if (pos === 2) return "background-color: #bdc3c7; color: #111111;";
+            if (pos === 3) return "background-color: #cd7f32; color: #111111;";
+            return "background-color: #2a2a2a; color: #aaaaaa;";
+        }
+
+        function renderDriver(data) {
+            const d = data.driver;
+            document.getElementById("driverNumber").textContent = d.number ? `#${d.number}` : "";
+            document.getElementById("driverFirstName").textContent = d.first_name;
+            document.getElementById("driverLastName").textContent = d.last_name;
+            document.getElementById("driverMeta").textContent = `${d.code ?? "—"} · ${d.nationality} · ${d.driver_id}`;
+
+            const badge = document.getElementById("positionBadge");
+            badge.textContent = data.position;
+            badge.setAttribute("style",
+                `width:5rem;height:5rem;border-radius:9999px;display:flex;align-items:center;` +
+                `justify-content:center;font-size:1.875rem;font-weight:900;${positionBadgeStyle(data.position)}`
+            );
+
+            document.getElementById("statPoints").textContent = data.points;
+            document.getElementById("statWins").textContent = data.wins;
+            document.getElementById("statConstructor").textContent = data.constructor_name;
+            document.getElementById("statDob").textContent = d.date_of_birth ?? "—";
+
+            // Store constructor id — derive from constructor_name
+            currentConstructorId = data.constructor_name
+                .toLowerCase()
+                .replace(/\s+/g, "_")
+                .replace(/[^a-z0-9_]/g, "");
+
+            if (d.url) {
+                const wikiLink = document.getElementById("wikiLink");
+                wikiLink.href = d.url;
+                wikiLink.classList.remove("hidden");
+            }
+
+            document.title = `F1 Stats · ${d.first_name} ${d.last_name}`;
+            loadingEl.classList.add("hidden");
+            profileEl.classList.remove("hidden");
+        }
+
+        function goToTeam() {
+            if (!currentConstructorId) return;
+            sessionStorage.setItem("selectedConstructor", currentConstructorId);
+            window.location.href = "team.html";
+        }
+
+        async function loadDriver() {
+            const year = sessionStorage.getItem("selectedYear");
+            const driverId = sessionStorage.getItem("selectedDriver");
+            if (!year || !driverId) {
+                loadingEl.classList.add("hidden");
+                errorEl.textContent = "No driver selected. Go back and click a driver.";
+                errorEl.classList.remove("hidden");
+                return;
+            }
+            try {
+                const data = await getDriverInfo(year, driverId);
+                renderDriver(data);
+            } catch (err) {
+                loadingEl.classList.add("hidden");
+                errorEl.textContent = "Could not load driver: " + err.message;
+                errorEl.classList.remove("hidden");
+            }
+        }
+
+        loadDriver();
+    </script>
+</body>
+</html>
